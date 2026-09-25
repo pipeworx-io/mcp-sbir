@@ -716,8 +716,11 @@ const CLOSED =
   'a notice that the APIs are "currently undergoing maintenance", with no key or replacement ' +
   'offered, and directs data requests to sba.sbir.support@decisionpointcorp.com. ' +
   'Retrying will not help. For federal award data in the meantime, usa_award_search covers ' +
-  'USAspending (all federal awards, SBIR/STTR contracts included) and sam_search_opportunities ' +
-  'covers open solicitations on SAM.gov. Status: https://www.sbir.gov/api';
+  'USAspending (all federal awards, SBIR/STTR contracts included), sam_search_opportunities ' +
+  'covers open solicitations on SAM.gov, and search_opportunities (Grants.gov) also indexes open ' +
+  'SBIR/STTR solicitations directly — e.g. search_opportunities({keyword:"SBIR <topic>"}) or ' +
+  '{agency:"HHS"} for NIH/NCI, since agencies cross-post many SBIR topics there too. ' +
+  'Status: https://www.sbir.gov/api';
 
 function sbirErr(res: Response, body?: string): string {
   // 404 is a real not-found — a bad award id or an endpoint path we got wrong —

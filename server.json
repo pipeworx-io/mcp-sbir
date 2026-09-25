@@ -3,7 +3,7 @@
   "name": "io.github.pipeworx-io/sbir",
   "title": "Sbir",
   "description": "SBIR MCP — wraps the SBIR.gov public API (free, no auth)",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "websiteUrl": "https://pipeworx.io/packs/sbir",
   "repository": {
     "url": "https://github.com/pipeworx-io/mcp-sbir",
