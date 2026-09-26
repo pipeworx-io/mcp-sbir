@@ -452,7 +452,42 @@ async function fetchWithTimeout(
         ),
       );
     }
-    throw err;
+    // Fleet #2382. Everything that isn't a timeout/abort here is a genuine
+    // NETWORK-LEVEL failure — DNS resolution, connection refused, TLS handshake,
+    // Cloudflare's own "Network connection lost." — meaning `fetch()` itself
+    // threw and no HTTP response of any kind was ever received. Until this fix
+    // that raw exception was rethrown VERBATIM: a bare `TypeError: fetch failed`
+    // (or the Workers-runtime equivalent) names no upstream, carries no class
+    // token, and reads exactly like a defect in OUR code — because it says
+    // nothing about the call at all. It landed in `error`, the tier that means
+    // "Pipeworx has a defect", for every one of the (at the time of writing)
+    // ~470 packs that call this helper directly with no wrapper of their own.
+    //
+    // `dexscreener` hit this independently (fleet #1579) and fixed it with a
+    // bespoke per-pack try/catch around `fetchWithTimeout`. That fix is correct
+    // but only covers one pack; every other caller of this shared helper still
+    // leaked the raw exception. Moving the same fix HERE — the one place that
+    // already carries the timeout case — covers every pack that uses
+    // `fetchWithTimeout` without a wrapper, for free, and without widening
+    // `classifyToolError`'s regex list: the fix is giving the message a proper
+    // `upstream_down:` token at the point the two facts (no response was ever
+    // received, and which host we were trying to reach) are actually in hand,
+    // not teaching the classifier to guess from prose after the fact.
+    //
+    // Safe on the same grounds as the timeout branch above: no argument a
+    // caller passes can make `fetch()` itself throw a connection-level error,
+    // so this is always an availability failure, never a caller mistake. Same
+    // `markInternalOrigin` treatment — an origin we run that never answered is
+    // still ours, not a third party's outage.
+    const raw = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      markInternalOrigin(
+        `upstream_down: could not reach ${name} at all (${raw.slice(0, 160)}). ` +
+          `No request reached ${name}, so this says NOTHING about whether the arguments you passed ` +
+          'are valid — do not re-check them on the strength of this error. Retry shortly.',
+        url,
+      ),
+    );
   }
 }
 
@@ -737,12 +772,38 @@ function sbirErr(res: Response, body?: string): string {
   return `${CLOSED} (upstream said: ${res.status} ${res.statusText}${detail ? ` ${detail}` : ''})`;
 }
 
-/** One SBIR GET, with the error body read so `sbirErr` can tell maintenance from a real 429. */
-async function sbirGet(path: string, params: URLSearchParams): Promise<Record<string, unknown>[]> {
-  const res = await pwFetch(`${BASE_URL}/${path}?${params}`, { headers: UA });
-  if (!res.ok) throw new Error(sbirErr(res, await res.text().catch(() => '')));
-  const data = (await res.json()) as unknown;
-  return Array.isArray(data) ? (data as Record<string, unknown>[]) : [];
+/**
+ * One SBIR GET, with the error body read so `sbirErr` can tell maintenance
+ * from a real 429 — EXCEPT this never actually runs any more (fleet #2450).
+ *
+ * The upstream has been confirmed permanently closed since 2026-08-28 (see
+ * CLOSED above) — every path, every agency, no key on offer, a static
+ * "currently undergoing maintenance" notice. Leaving the real `pwFetch` call
+ * in place meant every `sbir_*` invocation still spent a full network round
+ * trip (DNS + TLS + AWS API Gateway's 403) to rediscover a fact already
+ * known before the call was made. That round trip is exactly what tipped
+ * ask_pipeworx's SBIR question over its 28s FANOUT_BUDGET_MS wall
+ * (`request_deadline_exceeded` at 28.3s, 2026-09-25): the dead sbir call ran
+ * first, and only THEN did the NAMED_SERVICE_SIBLING_OVERRIDE retry to
+ * grants-gov get a chance to run — inside whatever budget the dead call had
+ * left it. Failing instantly, with no fetch at all, gives the retry the
+ * whole budget back.
+ *
+ * If SBIR.gov ever reopens: re-verify the outage first (do not re-enable by
+ * guessing), then restore the real fetch this replaced —
+ *
+ *     const res = await pwFetch(`${BASE_URL}/${path}?${params}`, { headers: UA });
+ *     if (!res.ok) throw new Error(sbirErr(res, await res.text().catch(() => '')));
+ *     const data = (await res.json()) as unknown;
+ *     return Array.isArray(data) ? (data as Record<string, unknown>[]) : [];
+ *
+ * — it is in git history verbatim (this comment, not a revert, is what a
+ * future reader should trust: TS treats code after an unconditional `throw`
+ * as unreachable and errors on the whole-catalog typecheck, so it cannot be
+ * left in place commented out as dead code below the throw).
+ */
+async function sbirGet(_path: string, _params: URLSearchParams): Promise<Record<string, unknown>[]> {
+  throw new Error(CLOSED);
 }
 
 const tools: McpToolExport['tools'] = [
