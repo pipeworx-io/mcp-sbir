@@ -913,7 +913,7 @@ const tools: McpToolExport['tools'] = [
   {
     name: 'sbir_agency_stats',
     description:
-      'SBIR.gov award COUNTS per agency, spanning every year on record — one agency (e.g., "DOD", "NASA", "NSF") or all major agencies side by side. For awards in one fiscal year, on a topic, or to one company, sbir_search_awards filters by those.',
+      'Get SBIR/STTR award counts by agency. Specify agency (e.g., "DOD", "NASA", "NSF") or omit to see all major agencies.',
     inputSchema: {
       type: 'object' as const,
       properties: {
