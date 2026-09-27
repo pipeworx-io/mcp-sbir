@@ -1,6 +1,6 @@
 {
   "name": "@pipeworx/mcp-sbir",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "SBIR MCP — wraps the SBIR.gov public API (free, no auth)",
   "type": "module",
   "main": "src/index.ts",
@@ -26,7 +26,7 @@
     "@cloudflare/workers-types": "^4.20260405.1"
   },
   "pipeworx": {
-    "sourceHash": "v1-124eb76872e9f805a73fd77b00e4f1e93084079a4aa78ffb4fccd01b75a87d12",
-    "sourceCommit": "6fe8fb3e01138dfc4ebe7d5c246503aab9278d06"
+    "sourceHash": "v1-1386c7c4f84a8dd93d1a56cdc2d5733fd008c7c06360bdacad7a3c87d6b6559f",
+    "sourceCommit": "bc59503bb19d6bc0b88a827a7dfcfb0a1af4799c"
   }
 }
